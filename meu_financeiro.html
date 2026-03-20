@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Financeiro">
+<title>Financeiro</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#075E54;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto}
+
+/* Header estilo WhatsApp */
+.header{background:#075E54;padding:14px 16px 12px;flex-shrink:0;padding-top:max(14px,env(safe-area-inset-top));display:flex;align-items:center;gap:12px}
+.header-avatar{width:40px;height:40px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.header-info{flex:1}
+.header-name{font-size:16px;font-weight:600;color:#fff}
+.header-status{font-size:12px;color:rgba(255,255,255,.7);margin-top:1px}
+.header-btn{background:none;border:none;color:rgba(255,255,255,.8);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px}
+
+/* Chat area */
+.chat{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;background:#ECE5DD;display:flex;flex-direction:column;gap:8px}
+.chat::-webkit-scrollbar{width:0}
+
+/* Balões */
+.msg{max-width:82%;display:flex;flex-direction:column;gap:2px}
+.msg.bot{align-self:flex-start}
+.msg.user{align-self:flex-end}
+.bubble{padding:8px 12px;border-radius:8px;font-size:14px;line-height:1.5;position:relative;word-wrap:break-word}
+.msg.bot .bubble{background:#fff;border-radius:0 8px 8px 8px;color:#1a1a1a}
+.msg.user .bubble{background:#DCF8C6;border-radius:8px 0 8px 8px;color:#1a1a1a}
+.bubble-time{font-size:10px;color:#999;text-align:right;margin-top:2px;padding:0 4px}
+.msg.user .bubble-time{color:#4CAF50}
+
+/* Cards dentro do balão */
+.resumo-card{background:#f0f0f0;border-radius:8px;padding:10px 12px;margin-top:8px;font-size:13px}
+.resumo-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #e0e0e0}
+.resumo-row:last-child{border:none;padding-top:6px;margin-top:2px}
+.resumo-label{color:#555}
+.resumo-val{font-weight:700}
+.resumo-val.verde{color:#128C7E}
+.resumo-val.vermelho{color:#e53935}
+.resumo-val.azul{color:#1565C0}
+
+.cat-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.cat-tag{background:#e8f5e9;color:#2e7d32;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;font-family:inherit}
+.cat-tag:active{background:#c8e6c9}
+
+/* Input area */
+.input-area{background:#F0F0F0;padding:8px 10px;padding-bottom:max(8px,env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:8px;flex-shrink:0}
+.input-wrap{flex:1;background:#fff;border-radius:24px;padding:8px 16px;display:flex;align-items:center;min-height:44px}
+.input-wrap input{flex:1;border:none;outline:none;font-size:15px;color:#1a1a1a;background:transparent;font-family:inherit}
+.input-wrap input::placeholder{color:#aaa}
+.send-btn{width:44px;height:44px;border-radius:50%;background:#075E54;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.send-btn:active{background:#064e47}
+
+/* Chip de sugestão */
+.sugestoes{display:flex;gap:6px;overflow-x:auto;padding:6px 10px 2px;background:#F0F0F0;flex-shrink:0}
+.sugestoes::-webkit-scrollbar{display:none}
+.chip{background:#fff;border:1px solid #ccc;border-radius:99px;padding:5px 12px;font-size:12px;white-space:nowrap;cursor:pointer;color:#333;font-family:inherit;flex-shrink:0}
+.chip:active{background:#e8f5e9;border-color:#25D366;color:#128C7E}
+
+/* Typing indicator */
+.typing{display:flex;align-items:center;gap:4px;padding:12px 14px;background:#fff;border-radius:0 8px 8px 8px;width:60px}
+.dot{width:7px;height:7px;border-radius:50%;background:#aaa;animation:bounce .8s infinite}
+.dot:nth-child(2){animation-delay:.15s}
+.dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+
+/* Painel resumo no topo */
+.top-bar{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-avatar">🤖</div>
+    <div class="header-info">
+      <div class="header-name">Assistente Financeiro</div>
+      <div class="header-status" id="hstatus">online</div>
+    </div>
+    <button class="header-btn" onclick="mostrarResumo()" title="Resumo">📊</button>
+    <button class="header-btn" onclick="limparTudo()" title="Limpar">🗑</button>
+  </div>
+
+  <div class="sugestoes" id="sugestoes">
+    <button class="chip" onclick="digitar('gastei 50 no mercado')">gastei 50 no mercado</button>
+    <button class="chip" onclick="digitar('recebi 3000 de salário')">recebi 3000 de salário</button>
+    <button class="chip" onclick="digitar('paguei 180 de luz')">paguei 180 de luz</button>
+    <button class="chip" onclick="digitar('almocei por 35')">almocei por 35</button>
+    <button class="chip" onclick="digitar('resumo do mês')">resumo do mês</button>
+    <button class="chip" onclick="digitar('quanto gastei hoje')">quanto gastei hoje</button>
+  </div>
+
+  <div class="chat" id="chat"></div>
+
+  <div class="input-area">
+    <div class="input-wrap">
+      <input type="text" id="msg-input" placeholder="Digite aqui... ex: gastei 50 no mercado" autocomplete="off" autocorrect="off">
+    </div>
+    <button class="send-btn" onclick="enviar()">➤</button>
+  </div>
+</div>
+
+<script>
+// ── Storage ──────────────────────────────────────────────────────────────────
+function ld(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch{return d}}
+function sv(k,v){localStorage.setItem(k,JSON.stringify(v))}
+
+let tx = ld('fin_tx', []);
+
+// ── Utilidades ───────────────────────────────────────────────────────────────
+function fmt(v){return'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function agora(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function hoje(){return new Date().toISOString().split('T')[0]}
+function nomeMes(d){const m=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];const dt=new Date(d+'T12:00:00');return m[dt.getMonth()]+' de '+dt.getFullYear()}
+
+// ── NLP simples ──────────────────────────────────────────────────────────────
+const ENTRADAS = [/recebi/i,/ganhei/i,/entrou/i,/salário/i,/salario/i,/renda/i,/pagaram/i,/depósito/i,/deposito/i,/pix entrou/i,/freelance/i,/vendi/i,/venda/i];
+const SAIDAS   = [/gastei/i,/paguei/i,/comprei/i,/fui/i,/almocei/i,/jantei/i,/tomei/i,/uber/i,/ifood/i,/mercado/i,/farmácia/i,/farmacia/i,/conta/i,/aluguel/i,/gasolina/i,/combustível/i,/combustivel/i];
+
+const CATS_MAP = {
+  'Alimentação': [/mercado/i,/supermer/i,/açougue/i,/padaria/i,/ifood/i,/delivery/i,/restaurante/i,/almoç/i,/almoc/i,/jantar/i,/jantei/i,/lanche/i,/pizza/i,/hamburguer/i,/sushi/i,/café/i,/cafe/i,/comida/i],
+  'Transporte':  [/uber/i,/99/i,/onibus/i,/ônibus/i,/metro/i,/metrô/i,/gasolina/i,/combustível/i,/combustivel/i,/estacionamento/i,/pedágio/i,/pedagio/i,/táxi/i,/taxi/i],
+  'Contas':      [/luz/i,/energia/i,/água/i,/agua/i,/internet/i,/telefone/i,/cel/i,/aluguel/i,/condomínio/i,/condominio/i,/iptu/i,/seguro/i,/plano/i,/fatura/i],
+  'Saúde':       [/farmácia/i,/farmacia/i,/remédio/i,/remedio/i,/médico/i,/medico/i,/consulta/i,/dentista/i,/exame/i,/hospital/i,/clínica/i,/clinica/i],
+  'Lazer':       [/cinema/i,/show/i,/festa/i,/bar/i,/balada/i,/netflix/i,/spotify/i,/jogo/i,/viagem/i,/hotel/i,/passeio/i,/diversão/i,/diversao/i],
+  'Educação':    [/curso/i,/faculdade/i,/escola/i,/livro/i,/aula/i,/mensalidade/i,/inglês/i,/ingles/i],
+  'Salário':     [/salário/i,/salario/i,/pagamento/i,/holerite/i],
+  'Freelance':   [/freelance/i,/freela/i,/projeto/i,/serviço/i,/servico/i],
+  'Investimento':[/investimento/i,/aplicação/i,/aplicacao/i,/poupança/i,/poupanca/i,/cdb/i,/tesouro/i,/ação/i,/acao/i],
+  'Extra':       [],
+};
+
+function detectarCat(texto){
+  for(const [cat,pats] of Object.entries(CATS_MAP)){
+    if(pats.some(p=>p.test(texto)))return cat;
+  }
+  return 'Extra';
+}
+
+function extrairValor(texto){
+  // "R$ 1.500,50" ou "1500.50" ou "50" ou "1,5 mil" ou "1k"
+  let t=texto;
+  const mil=/(\d+[,.]?\d*)\s*mil/i.exec(t);
+  if(mil)return parseFloat(mil[1].replace(',','.'))*1000;
+  const k=/(\d+[,.]?\d*)\s*k/i.exec(t);
+  if(k)return parseFloat(k[1].replace(',','.'))*1000;
+  const r=/R\$\s*([\d.,]+)/.exec(t);
+  if(r){let v=r[1].replace(/\./g,'').replace(',','.');return parseFloat(v)}
+  const n=/([\d]+[.,][\d]{2})/.exec(t);
+  if(n){return parseFloat(n[1].replace(',','.'))}
+  const s=/\b(\d{2,6})\b/.exec(t);
+  if(s)return parseFloat(s[1]);
+  return null;
+}
+
+function extrairDesc(texto, valor){
+  let t = texto.toLowerCase();
+  // Remove palavras de comando
+  t = t.replace(/gastei|paguei|comprei|recebi|ganhei|entrou|almocei|jantei|tomei|fui/gi,'');
+  t = t.replace(/\b(de|no|na|em|por|com|num|numa|pelo|pela|para|pra|um|uma|uns|umas|o|a|os|as)\b/gi,' ');
+  t = t.replace(/r\$\s*[\d.,]+/gi,'');
+  t = t.replace(/\b\d+[.,]?\d*\s*(mil|k)?\b/gi,'');
+  t = t.replace(/\s+/g,' ').trim();
+  if(t.length<2) return 'Lançamento';
+  return t.charAt(0).toUpperCase()+t.slice(1);
+}
+
+// ── Interpretador ─────────────────────────────────────────────────────────────
+function interpretar(texto){
+  const t = texto.trim();
+  const tl = t.toLowerCase();
+
+  // Comandos especiais
+  if(/resumo|balanço|balanco|saldo|extrato/i.test(tl)) return {cmd:'resumo'};
+  if(/hoje/i.test(tl) && /gastei|quanto|gasto/i.test(tl)) return {cmd:'hoje'};
+  if(/semana/i.test(tl) && /gastei|quanto|gasto/i.test(tl)) return {cmd:'semana'};
+  if(/ajuda|o que|como usar|comandos/i.test(tl)) return {cmd:'ajuda'};
+  if(/delete|apagar|remover|último|ultimo|desfazer/i.test(tl)) return {cmd:'desfazer'};
+
+  // Lançamento
+  const valor = extrairValor(t);
+  if(!valor) return {cmd:'naoentendi', texto:t};
+
+  const isEntrada = ENTRADAS.some(p=>p.test(t));
+  const isSaida   = SAIDAS.some(p=>p.test(t));
+  const tipo = isEntrada && !isSaida ? 'entrada' : 'saida';
+  const cat  = detectarCat(t);
+  const desc = extrairDesc(t, valor);
+
+  return {cmd:'lancar', tipo, valor, cat, desc};
+}
+
+// ── Respostas ────────────────────────────────────────────────────────────────
+function respostaLancar(r){
+  const emoji = r.tipo==='entrada' ? '💚' : '🔴';
+  const acao  = r.tipo==='entrada' ? 'Entrada registrada' : 'Saída registrada';
+  const {e,s,saldo} = totaisMes();
+  return `${emoji} <b>${acao}!</b><br><br>
+<b>${r.tipo==='entrada'?'+':'-'}${fmt(r.valor)}</b> — ${r.desc}<br>
+📂 Categoria: ${r.cat}
+
+<div class="resumo-card">
+  <div class="resumo-row"><span class="resumo-label">Saldo do mês</span><span class="resumo-val ${saldo>=0?'azul':'vermelho'}">${saldo>=0?'+':'-'}${fmt(saldo)}</span></div>
+  <div class="resumo-row"><span class="resumo-label">Entradas</span><span class="resumo-val verde">+${fmt(e)}</span></div>
+  <div class="resumo-row"><span class="resumo-label">Saídas</span><span class="resumo-val vermelho">-${fmt(s)}</span></div>
+</div>`;
+}
+
+function respostaResumo(){
+  const {e,s,saldo,l} = totaisMes();
+  const dt = hoje();
+  const mes = nomeMes(dt);
+  const pct = e>0?Math.round(s/e*100):0;
+
+  // por categoria
+  const cats = {};
+  l.filter(t=>t.tipo==='saida').forEach(t=>{cats[t.cat]=(cats[t.cat]||0)+t.valor});
+  const catRows = Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<div class="resumo-row"><span class="resumo-label">${CATS_MAP_EMOJI[c]||'📌'} ${c}</span><span class="resumo-val vermelho">-${fmt(v)}</span></div>`).join('');
+
+  return `📊 <b>Resumo — ${mes}</b><br>
+<div class="resumo-card">
+  <div class="resumo-row"><span class="resumo-label">💚 Entradas</span><span class="resumo-val verde">+${fmt(e)}</span></div>
+  <div class="resumo-row"><span class="resumo-label">🔴 Saídas</span><span class="resumo-val vermelho">-${fmt(s)}</span></div>
+  <div class="resumo-row"><span class="resumo-label" style="font-weight:700">💰 Saldo</span><span class="resumo-val ${saldo>=0?'azul':'vermelho'}" style="font-size:15px">${saldo>=0?'+':'-'}${fmt(saldo)}</span></div>
+  <div class="resumo-row"><span class="resumo-label">📈 % Gasto</span><span class="resumo-val ${pct>70?'vermelho':'azul'}">${pct}% da renda</span></div>
+  ${catRows}
+</div>
+${pct>90?'⚠️ Atenção: você já gastou <b>'+pct+'%</b> da sua renda!':pct>70?'🟡 Gastos acima de 70% — cuidado!':'✅ Ótimo! Gastos dentro do limite.'}`;
+}
+
+function respostaHoje(){
+  const hj = hoje();
+  const lista = tx.filter(t=>t.data===hj);
+  const gasto = lista.filter(t=>t.tipo==='saida').reduce((a,t)=>a+t.valor,0);
+  const ganho = lista.filter(t=>t.tipo==='entrada').reduce((a,t)=>a+t.valor,0);
+  if(!lista.length) return '📅 Você ainda não registrou nada hoje.\n\nDigite o que gastou ou recebeu!';
+  const rows = lista.map(t=>`<div class="resumo-row"><span class="resumo-label">${CATS_MAP_EMOJI[t.cat]||'📌'} ${t.desc}</span><span class="resumo-val ${t.tipo==='entrada'?'verde':'vermelho'}">${t.tipo==='entrada'?'+':'-'}${fmt(t.valor)}</span></div>`).join('');
+  return `📅 <b>Hoje</b><br><div class="resumo-card">${rows}${gasto>0?`<div class="resumo-row"><span class="resumo-label" style="font-weight:700">Total gasto</span><span class="resumo-val vermelho">-${fmt(gasto)}</span></div>`:''}${ganho>0?`<div class="resumo-row"><span class="resumo-label" style="font-weight:700">Total recebido</span><span class="resumo-val verde">+${fmt(ganho)}</span></div>`:''}</div>`;
+}
+
+function respostaDesfazer(){
+  if(!tx.length) return '❌ Nenhum lançamento para remover.';
+  const rem = tx.shift();
+  sv('fin_tx', tx);
+  return `🗑 Último lançamento removido:\n<b>${rem.desc}</b> — ${fmt(rem.valor)}`;
+}
+
+function respostaAjuda(){
+  return `👋 <b>Como usar:</b><br><br>
+Fala comigo em português normal! Exemplos:<br><br>
+<div class="resumo-card">
+  <div class="resumo-row"><span class="resumo-label">💸 Saída</span><span class="resumo-val vermelho">gastei 50 no mercado</span></div>
+  <div class="resumo-row"><span class="resumo-label">💸 Saída</span><span class="resumo-val vermelho">paguei 180 de luz</span></div>
+  <div class="resumo-row"><span class="resumo-label">💚 Entrada</span><span class="resumo-val verde">recebi 3000 de salário</span></div>
+  <div class="resumo-row"><span class="resumo-label">💚 Entrada</span><span class="resumo-val verde">ganhei 500 de freela</span></div>
+  <div class="resumo-row"><span class="resumo-label">📊 Resumo</span><span class="resumo-val azul">resumo do mês</span></div>
+  <div class="resumo-row"><span class="resumo-label">📅 Hoje</span><span class="resumo-val azul">quanto gastei hoje</span></div>
+  <div class="resumo-row"><span class="resumo-label">🗑 Desfazer</span><span class="resumo-val azul">apagar último</span></div>
+</div>`;
+}
+
+const CATS_MAP_EMOJI = {
+  'Alimentação':'🍽','Transporte':'🚗','Contas':'💡','Lazer':'🎬',
+  'Saúde':'🏥','Educação':'📚','Salário':'💼','Freelance':'💻',
+  'Investimento':'📈','Extra':'📦','Outros':'📌'
+};
+
+function totaisMes(){
+  const hj=new Date(),m=hj.getMonth(),a=hj.getFullYear();
+  const l=tx.filter(t=>{const d=new Date(t.data+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===a});
+  const e=l.filter(t=>t.tipo==='entrada').reduce((s,t)=>s+t.valor,0);
+  const s=l.filter(t=>t.tipo==='saida').reduce((s,t)=>s+t.valor,0);
+  return{e,s,saldo:e-s,l};
+}
+
+// ── Chat UI ──────────────────────────────────────────────────────────────────
+function addMsg(html, tipo, hora){
+  const chat = document.getElementById('chat');
+  const d = document.createElement('div');
+  d.className = 'msg '+tipo;
+  d.innerHTML = `<div class="bubble">${html}</div><div class="bubble-time">${hora||agora()}</div>`;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addTyping(){
+  const chat = document.getElementById('chat');
+  const d = document.createElement('div');
+  d.className = 'msg bot'; d.id = 'typing';
+  d.innerHTML = '<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>';
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+
+function removeTyping(){
+  const t = document.getElementById('typing');
+  if(t) t.remove();
+}
+
+function responder(texto){
+  const r = interpretar(texto);
+  let resposta = '';
+
+  if(r.cmd === 'lancar'){
+    tx.unshift({id:Date.now(), tipo:r.tipo, valor:r.valor, cat:r.cat, desc:r.desc, data:hoje()});
+    sv('fin_tx', tx);
+    resposta = respostaLancar(r);
+  } else if(r.cmd === 'resumo')    resposta = respostaResumo();
+  else if(r.cmd === 'hoje')        resposta = respostaHoje();
+  else if(r.cmd === 'semana')      resposta = respostaHoje(); // simplificado
+  else if(r.cmd === 'desfazer')    resposta = respostaDesfazer();
+  else if(r.cmd === 'ajuda')       resposta = respostaAjuda();
+  else resposta = `🤔 Não entendi direito. Tente assim:<br><br><b>gastei 50 no mercado</b><br><b>recebi 2000 de salário</b><br><b>paguei 120 de luz</b><br><br>Ou diga <b>"ajuda"</b> para ver todos os exemplos.`;
+
+  return resposta;
+}
+
+function enviar(){
+  const input = document.getElementById('msg-input');
+  const texto = input.value.trim();
+  if(!texto) return;
+  input.value = '';
+
+  addMsg(texto, 'user');
+
+  const typing = addTyping();
+  setTimeout(()=>{
+    removeTyping();
+    const resp = responder(texto);
+    addMsg(resp, 'bot');
+  }, 500 + Math.random()*400);
+}
+
+function digitar(t){
+  document.getElementById('msg-input').value = t;
+  document.getElementById('msg-input').focus();
+}
+
+function mostrarResumo(){
+  const typing = addTyping();
+  setTimeout(()=>{
+    removeTyping();
+    addMsg(respostaResumo(), 'bot');
+    document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+  }, 400);
+}
+
+function limparTudo(){
+  if(!confirm('Apagar todos os lançamentos?')) return;
+  tx = []; sv('fin_tx', tx);
+  document.getElementById('chat').innerHTML = '';
+  addMsg('🗑 Tudo apagado. Pode começar do zero!', 'bot');
+}
+
+document.getElementById('msg-input').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') enviar();
+});
+
+// ── Boas vindas ───────────────────────────────────────────────────────────────
+const {e,s,saldo,l} = totaisMes();
+const temDados = l.length > 0;
+
+if(temDados){
+  addMsg(`👋 Bem-vindo de volta!<br><br>
+<div class="resumo-card">
+  <div class="resumo-row"><span class="resumo-label">💰 Saldo do mês</span><span class="resumo-val ${saldo>=0?'azul':'vermelho'}">${saldo>=0?'+':'-'}${fmt(saldo)}</span></div>
+  <div class="resumo-row"><span class="resumo-label">💚 Entradas</span><span class="resumo-val verde">+${fmt(e)}</span></div>
+  <div class="resumo-row"><span class="resumo-label">🔴 Saídas</span><span class="resumo-val vermelho">-${fmt(s)}</span></div>
+</div>
+O que aconteceu hoje?`, 'bot');
+} else {
+  addMsg(`👋 Olá! Sou seu assistente financeiro.<br><br>
+Me fala em português o que você gastou ou recebeu, tipo:<br><br>
+<b>gastei 50 no mercado</b><br>
+<b>recebi 3000 de salário</b><br>
+<b>paguei 180 de luz</b><br><br>
+Eu registro tudo automaticamente! 🚀`, 'bot');
+}
+</script>
+</body>
+</html>
